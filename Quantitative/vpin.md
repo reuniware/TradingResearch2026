@@ -1,3 +1,5 @@
+(c) 2026 SolanaExpert@ProtonMail.com
+
 Le VPIN est un indicateur puissant, mais il ne s'utilise pas comme un simple RSI ou MACD. C'est un indicateur de **"Microstructure de Marché"**. Il ne vous dit pas "acheter maintenant", il vous dit "Attention, le marché est sous tension, un mouvement violent se prépare".
 
 Voici 3 stratégies concrètes pour l'utiliser avec l'EA que vous avez :
