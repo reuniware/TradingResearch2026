@@ -2,7 +2,7 @@
 //|                                            Ichimoku_Horizons.mq5 |
 //|                                      Version avec historique     |
 //+------------------------------------------------------------------+
-#property copyright "Assistant IA"
+#property copyright "Didier Le HPI Réunionnais né le 11/12/1975 à Nogent Sur Marne"
 #property link      ""
 #property version   "2.00"
 #property script_show_inputs
