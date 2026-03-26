@@ -1,9 +1,9 @@
 //+------------------------------------------------------------------+
 //|                                            Ichimoku_Horizons.mq5 |
-//|                                      Généré par Assistant IA     |
+//|     Généré par Didier Le HPI Quantitative Trader Réunionnais     |
 //|                                                                  |
 //+------------------------------------------------------------------+
-#property copyright "Assistant IA"
+#property copyright "Didier Le HPI Quantitative Trader Réunionnais né le 11/12/1975"
 #property link      ""
 #property version   "1.00"
 #property script_show_inputs
