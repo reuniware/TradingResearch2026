@@ -119,6 +119,9 @@ void OnTick()
 //+------------------------------------------------------------------+
 //| Calcule la taille de lot optimale selon le risque en %           |
 //+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
+//| Calcule la taille de lot optimale selon le risque et la MARGE    |
+//+------------------------------------------------------------------+
 double CalculateLotSize(double sl_distance_price)
   {
    double account_balance = AccountInfoDouble(ACCOUNT_BALANCE);
@@ -129,13 +132,13 @@ double CalculateLotSize(double sl_distance_price)
    
    if(tick_size <= 0 || tick_value <= 0 || sl_distance_price <= 0) return 0.0;
    
-   // Calcul de la valeur financière d'un mouvement de la taille du Stop Loss pour 1 lot
+   // 1. Calcul de la valeur financière d'un mouvement de la taille du Stop Loss pour 1 lot
    double points_at_risk = sl_distance_price / tick_size;
    double money_risk_per_lot = points_at_risk * tick_value;
    
    if(money_risk_per_lot <= 0) return 0.0;
    
-   // Calcul final des lots
+   // 2. Calcul théorique des lots selon le risque défini
    double lot_size = risk_amount / money_risk_per_lot;
    
    // Normalisation des lots selon les limites du courtier
@@ -145,7 +148,33 @@ double CalculateLotSize(double sl_distance_price)
    
    lot_size = MathRound(lot_size / step_lot) * step_lot;
    
-   if(lot_size < min_lot) lot_size = min_lot;
+   // 3. VÉRIFICATION DE LA MARGE DISPONIBLE (Pour éviter l'erreur "No Money")
+   double margin_required = 0.0;
+   double free_margin = AccountInfoDouble(ACCOUNT_MARGIN_FREE);
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   
+   // On simule la demande de marge auprès du broker
+   if(OrderCalcMargin(ORDER_TYPE_BUY, _Symbol, lot_size, ask, margin_required))
+     {
+      // Si la marge requise dépasse 80% de notre marge libre (on garde 20% de sécurité)
+      if(margin_required > (free_margin * 0.8))
+        {
+         Print("Attention: Le lot calculé (", lot_size, ") demande trop de marge (", margin_required, "). Réduction en cours...");
+         
+         // Réduction proportionnelle de la taille du lot
+         lot_size = lot_size * ((free_margin * 0.8) / margin_required);
+         
+         // Re-normalisation après la réduction
+         lot_size = MathRound(lot_size / step_lot) * step_lot;
+        }
+     }
+
+   // 4. Vérification finale des limites extrêmes du broker
+   if(lot_size < min_lot) 
+     {
+      Print("Erreur : Le lot calculé est inférieur au minimum autorisé par le broker.");
+      return 0.0; // Annule le trade si on ne peut pas prendre au moins le lot minimum
+     }
    if(lot_size > max_lot) lot_size = max_lot;
    
    return lot_size;
