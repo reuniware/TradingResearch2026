@@ -2,7 +2,7 @@
 //|                                    UltimateIKHTraderEAPro.mq5    |
 //|                                    Version corrigée v3.2         |
 //+------------------------------------------------------------------+
-#property copyright "Ichimoku Opportunity Hunter v3.2"
+#property copyright "Ichimoku Opportunity Hunter v3.2 - par Didier Le HPI Réunionnais 11/12/1975"
 #property version   "3.20"
 #property description "EA qui capture TOUS les signaux Ichimoku identifiés comme rentables"
 #property description "Scanne TOUS les symboles du Market Watch"
