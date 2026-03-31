@@ -1,102 +1,181 @@
 //+------------------------------------------------------------------+
-//|                                         Ichimoku_SSB_Bounce.mq5|
-//|                          Copyright 2026, T0W3RBU5T3R. |
-//|                                             https://www.mql5.com |
+//|                               ScannerSSB_Kijun_Proximity_Fix.mq5 |
+//|           Scanner Proximité SSB & Kijun Actuelles (Temps Réel)   |
+//|                                                      MetaTrader 5|
 //+------------------------------------------------------------------+
-#property copyright "Copyright 2026, T0W3RBU5T3R."
-#property link      "https://www.mql5.com"
-#property version   "1.05"
+#property copyright "Corrigé et Adapté - Version avec Kijun"
+#property link      ""
+#property version   "1.04"
 
-#include <Trade\Trade.mqh>
+//--- Inputs
+input int             InpTenkan       = 9;         // Tenkan-sen
+input int             InpKijun        = 26;        // Kijun-sen
+input int             InpSenkouB      = 52;        // Senkou Span B
+input double          InpProximity    = 0.05;      // Tolérance d'approche (en % du prix, ex: 0.05)
+input bool            InpPopup        = true;      // Activer les alertes Popup
+input bool            InpPush         = false;     // Activer les notifications Push (Mobile)
 
-// On garde les variables globales du code original
-MqlRates mql_rates[];
-double ssb_buffer[];           // Senkou Span B
-double tenkan_sen_buffer[];    // Non utilisé ici mais gardé pour la structure
-double kijun_sen_buffer[];     // Non utilisé ici mais gardé pour la structure
-double senkou_span_a_buffer[];
-double chikou_span_buffer[];
+// Structure pour mémoriser l'état des alertes par symbole (Séparation SSB et Kijun)
+struct SymbolState {
+   string   name;
+   ENUM_TIMEFRAMES last_tf;
+   datetime last_ssb_alert_time;
+   datetime last_kijun_alert_time;
+};
+
+SymbolState symbols_state[];
 
 int OnInit()
-  {
-   // Initialisation des séries comme dans l'original
-   ArraySetAsSeries(mql_rates, true);
-   ArraySetAsSeries(ssb_buffer, true);
-   ArraySetAsSeries(tenkan_sen_buffer, true);
-   ArraySetAsSeries(kijun_sen_buffer, true);
-   ArraySetAsSeries(senkou_span_a_buffer, true);
-   ArraySetAsSeries(chikou_span_buffer, true);
-
-   printf("--- DÉBUT DU SCANNER SENKOU SPAN B BOUNCE ---");
-
-   bool onlySymbolsInMarketwatch = true;
-   int stotal = SymbolsTotal(onlySymbolsInMarketwatch);
-
-   for(int sindex = 0; sindex < stotal; sindex++)
-     {
-      string sname = SymbolName(sindex, onlySymbolsInMarketwatch);
-      CheckSSBPullback(sname);
-     }
-
-   printf("--- FIN DU SCANNER ---");
+{
+   EventSetTimer(10); 
+   Print("Scanner d'approche SSB & Kijun démarré. Timer: 10s. Tolérance: ", InpProximity, "%");
    return(INIT_SUCCEEDED);
-  }
+}
 
-void OnTick() {}
+void OnDeinit(const int reason)
+{
+   EventKillTimer();
+}
 
-void CheckSSBPullback(string sname)
-  {
-   // On récupère les 2 dernières bougies (courante et précédente)
-   if(CopyRates(sname, PERIOD_CURRENT, 0, 2, mql_rates) <= 0) return;
-
-   int tenkan_sen = 9;
-   int kijun_sen = 26;
-   int senkou_span_b = 52;
-
-   int handle = iIchimoku(sname, PERIOD_CURRENT, tenkan_sen, kijun_sen, senkou_span_b);
+void OnTimer()
+{
+   ENUM_TIMEFRAMES currentTF = Period();
+   int total = SymbolsTotal(true); 
    
-   if(handle != INVALID_HANDLE)
-     {
-      // Récupération de la Senkou Span B (on a besoin des 2 dernières valeurs)
-      // CORRECTION : Utiliser SENKOUSPANB_LINE au lieu de SENKOUSHAN_B_LINE
-      if(CopyBuffer(handle, SENKOUSPANB_LINE, 0, 2, ssb_buffer) > 1)
-        {
-         double currentLow = mql_rates[0].low;
-         double currentHigh = mql_rates[0].high;
-         double currentClose = mql_rates[0].close;
-         double currentOpen = mql_rates[0].open;
-         double ssbCurrent = ssb_buffer[0];
-         
-         // --- DÉTECTION : ARRIVÉE SUR LA SSB PAR LE BAS ---
-         // Le prix vient du dessous (bougie précédente sous SSB)
-         // ET la bougie actuelle touche ou traverse la SSB
-         bool previousBelowSSB = (mql_rates[1].high < ssb_buffer[1]);
-         bool touchingFromBelow = (currentLow <= ssbCurrent && currentHigh >= ssbCurrent) ||
-                                  (currentHigh >= ssbCurrent && currentLow < ssbCurrent);
-         
-         if(previousBelowSSB && touchingFromBelow && currentLow <= ssbCurrent)
-           {
-            printf(sname + " : [BAS → SSB] La bougie en cours arrive sur la Senkou Span B par le bas (Low: " + 
-                   DoubleToString(currentLow, _Digits) + ", SSB: " + 
-                   DoubleToString(ssbCurrent, _Digits) + ")");
-           }
-         
-         // --- DÉTECTION : ARRIVÉE SUR LA SSB PAR LE HAUT ---
-         // Le prix vient du dessus (bougie précédente au-dessus SSB)
-         // ET la bougie actuelle touche ou traverse la SSB
-         bool previousAboveSSB = (mql_rates[1].low > ssb_buffer[1]);
-         bool touchingFromAbove = (currentLow <= ssbCurrent && currentHigh >= ssbCurrent) ||
-                                  (currentLow <= ssbCurrent && currentHigh > ssbCurrent);
-         
-         if(previousAboveSSB && touchingFromAbove && currentHigh >= ssbCurrent)
-           {
-            printf(sname + " : [HAUT → SSB] La bougie en cours arrive sur la Senkou Span B par le haut (High: " + 
-                   DoubleToString(currentHigh, _Digits) + ", SSB: " + 
-                   DoubleToString(ssbCurrent, _Digits) + ")");
-           }
-        }
-      
-      // Nettoyage des buffers pour ce symbole
+   for(int i = 0; i < total; i++)
+   {
+      string symbol = SymbolName(i, true);
+      ScanSymbol(symbol, currentTF);
+   }
+}
+
+void ScanSymbol(string symbol, ENUM_TIMEFRAMES tf)
+{
+   int handle = iIchimoku(symbol, tf, InpTenkan, InpKijun, InpSenkouB);
+   if(handle == INVALID_HANDLE) return;
+ 
+   double ssb_buffer[];   
+   double kijun_buffer[]; // Nouveau buffer pour la Kijun
+   double close_price[];  
+   datetime time_buffer[];
+   
+   ArraySetAsSeries(ssb_buffer, true);
+   ArraySetAsSeries(kijun_buffer, true);
+   ArraySetAsSeries(close_price, true);
+   ArraySetAsSeries(time_buffer, true);
+
+   // Lecture des prix (0 = actuel, 1 = précédent)
+   if(CopyClose(symbol, tf, 0, 2, close_price) < 2 || CopyTime(symbol, tf, 0, 1, time_buffer) < 1) 
+   { 
       IndicatorRelease(handle); 
-     }
-  }
+      return; 
+   }
+
+   // Lecture de la SSB (Buffer 3) et de la Kijun (Buffer 1) sur la bougie actuelle (Index 0)
+   if(CopyBuffer(handle, 3, 0, 2, ssb_buffer) < 2 || CopyBuffer(handle, 1, 0, 2, kijun_buffer) < 2) 
+   { 
+      IndicatorRelease(handle); 
+      return; 
+   }
+
+   // Variables pour plus de clarté
+   double close_0 = close_price[0]; 
+   double close_1 = close_price[1]; 
+   
+   double ssb_0 = ssb_buffer[0];    
+   double ssb_1 = ssb_buffer[1];    
+   
+   double kijun_0 = kijun_buffer[0];    
+   double kijun_1 = kijun_buffer[1];
+
+   // --- CALCULS DES DISTANCES (en % du prix) ---
+   double dist_ssb_actuelle    = (MathAbs(close_0 - ssb_0) / close_0) * 100.0;
+   double dist_ssb_precedente  = (MathAbs(close_1 - ssb_1) / close_1) * 100.0;
+   
+   double dist_kijun_actuelle   = (MathAbs(close_0 - kijun_0) / close_0) * 100.0;
+   double dist_kijun_precedente = (MathAbs(close_1 - kijun_1) / close_1) * 100.0;
+
+   // --- LOGIQUE D'ALERTE SSB ---
+   bool is_approaching_ssb = (dist_ssb_precedente > InpProximity) && (dist_ssb_actuelle <= InpProximity);
+   if(is_approaching_ssb)
+   {
+      if(!AlreadyAlerted(symbol, time_buffer[0], tf, "SSB")) 
+      {
+         string direction = (close_1 > ssb_1) ? "par le HAUT" : "par le BAS";
+         string msg = StringFormat("APPROCHE SSB | %s | %s | Prix: %.5f | SSB: %.5f | %s", 
+                                    symbol, EnumToString(tf), close_0, ssb_0, direction);
+         
+         Print(msg);
+         if(InpPopup) Alert(msg);
+         if(InpPush)  SendNotification(msg);
+         
+         UpdateAlertState(symbol, time_buffer[0], tf, "SSB");
+      }
+   }
+
+   // --- LOGIQUE D'ALERTE KIJUN ---
+   bool is_approaching_kijun = (dist_kijun_precedente > InpProximity) && (dist_kijun_actuelle <= InpProximity);
+   if(is_approaching_kijun)
+   {
+      if(!AlreadyAlerted(symbol, time_buffer[0], tf, "KIJUN")) 
+      {
+         string direction = (close_1 > kijun_1) ? "par le HAUT" : "par le BAS";
+         string msg = StringFormat("APPROCHE KIJUN | %s | %s | Prix: %.5f | Kijun: %.5f | %s", 
+                                    symbol, EnumToString(tf), close_0, kijun_0, direction);
+         
+         Print(msg);
+         if(InpPopup) Alert(msg);
+         if(InpPush)  SendNotification(msg);
+         
+         UpdateAlertState(symbol, time_buffer[0], tf, "KIJUN");
+      }
+   }
+   
+   // Libération de la mémoire
+   IndicatorRelease(handle);
+}
+
+// --- Fonctions de gestion d'état ---
+// Le paramètre alert_type ("SSB" ou "KIJUN") permet de ne pas bloquer les alertes indépendantes
+bool AlreadyAlerted(string symbol, datetime bar_time, ENUM_TIMEFRAMES tf, string alert_type)
+{
+   int size = ArraySize(symbols_state);
+   for(int i=0; i<size; i++)
+   {
+      if(symbols_state[i].name == symbol && symbols_state[i].last_tf == tf)
+      {
+         if(alert_type == "SSB" && symbols_state[i].last_ssb_alert_time == bar_time) return true;
+         if(alert_type == "KIJUN" && symbols_state[i].last_kijun_alert_time == bar_time) return true;
+         return false; // Symbole trouvé mais pas encore d'alerte pour ce TYPE sur cette bougie
+      }
+   }
+   return false;
+}
+
+void UpdateAlertState(string symbol, datetime bar_time, ENUM_TIMEFRAMES tf, string alert_type)
+{
+   int size = ArraySize(symbols_state);
+   for(int i=0; i<size; i++)
+   {
+      if(symbols_state[i].name == symbol && symbols_state[i].last_tf == tf)
+      {
+         if(alert_type == "SSB") symbols_state[i].last_ssb_alert_time = bar_time;
+         if(alert_type == "KIJUN") symbols_state[i].last_kijun_alert_time = bar_time;
+         return;
+      }
+   }
+   
+   // Ajout d'un nouveau symbole
+   ArrayResize(symbols_state, size + 1);
+   symbols_state[size].name = symbol;
+   symbols_state[size].last_tf = tf;
+   
+   if(alert_type == "SSB") {
+      symbols_state[size].last_ssb_alert_time = bar_time;
+      symbols_state[size].last_kijun_alert_time = 0;
+   } else {
+      symbols_state[size].last_ssb_alert_time = 0;
+      symbols_state[size].last_kijun_alert_time = bar_time;
+   }
+}
+//+------------------------------------------------------------------+
