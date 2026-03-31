@@ -5,6 +5,7 @@
 #property copyright "Ichimoku Opportunity Hunter v3.2"
 #property version   "3.20"
 #property description "EA qui capture TOUS les signaux Ichimoku identifiés comme rentables"
+#property description "Scanne TOUS les symboles du Market Watch"
 
 #include <Trade/Trade.mqh>
 
@@ -26,10 +27,6 @@ input bool     InpUseH4       = true;
 input bool     InpUseD1       = true;        
 input bool     InpUseW1       = true;        
 input bool     InpUseMN1      = true;        
-
-input group "=== FILTRES SYMBOLES ==="
-input bool     InpAutoDetectSymbols = true;  
-input string   InpSymbolList   = "EURUSD,GBPUSD,AUDUSD,XAUUSD,BTCUSD,BNBUSD"; 
 
 input group "=== PARAMÈTRES DE PROXIMITÉ ==="
 input double   InpProximityHigh = 0.05;      
@@ -96,6 +93,7 @@ int            tfWeights[5] = {1, 2, 3, 4, 5};
 bool           tfEnabled[5];
 datetime       lastSummaryTime;
 int            totalTradesCount = 0;
+datetime       lastDebugPrint = 0;
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -129,97 +127,121 @@ int OnInit()
    if(InpStrategyKijunHigh) Print("  - Achat sur Kijun HAUT");
    if(InpStrategyKijunRebound) Print("  - Achat sur rebond Kijun");
    if(InpStrategySSBHigh) Print("  - Achat sur SSB HAUT");
+   Print("Unités de temps: H1=", InpUseH1, " H4=", InpUseH4, " D1=", InpUseD1, " W1=", InpUseW1, " MN1=", InpUseMN1);
    Print("===========================================================");
    
    return(INIT_SUCCEEDED);
 }
 
 //+------------------------------------------------------------------+
-//| Charger les symboles à surveiller                                |
+//| Charger TOUS les symboles du Market Watch                        |
 //+------------------------------------------------------------------+
 bool LoadSymbols()
 {
-   string symList[];
+   // Récupérer TOUS les symboles du Market Watch
+   int total = SymbolsTotal(true);  // true = uniquement les symboles visibles dans Market Watch
    
-   if(InpAutoDetectSymbols)
+   if(total == 0)
    {
-      int total = SymbolsTotal(true);
-      ArrayResize(symList, total);
-      for(int i = 0; i < total; i++)
-         symList[i] = SymbolName(i, true);
-      totalSymbols = total;
-   }
-   else
-   {
-      string temp[];
-      int count = StringSplit(InpSymbolList, ',', temp);
-      ArrayResize(symList, count);
-      for(int i = 0; i < count; i++)
-      {
-         symList[i] = temp[i];
-         StringTrimLeft(symList[i]);
-         StringTrimRight(symList[i]);
-      }
-      totalSymbols = count;
+      Print("ERREUR: Aucun symbole dans le Market Watch!");
+      Print("Solution: Cliquez droit sur Market Watch (Ctrl+M) -> 'Afficher tout'");
+      return false;
    }
    
-   ArrayResize(symbols, totalSymbols);
-   int validSymbols = 0;
+   Print("Détection de ", total, " symboles dans le Market Watch");
    
-   for(int i = 0; i < totalSymbols; i++)
+   // Compter d'abord les symboles valides
+   int validCount = 0;
+   for(int i = 0; i < total; i++)
    {
-      string sym = symList[i];
+      string sym = SymbolName(i, true);
+      if(SymbolSelect(sym, true))
+         validCount++;
+   }
+   
+   if(validCount == 0)
+   {
+      Print("ERREUR: Aucun symbole valide trouvé");
+      return false;
+   }
+   
+   // Allouer le tableau
+   ArrayResize(symbols, validCount);
+   int idx = 0;
+   
+   for(int i = 0; i < total; i++)
+   {
+      string sym = SymbolName(i, true);
       
       if(!SymbolSelect(sym, true))
       {
          if(InpPrintSignals)
-            Print("Symbole ignoré: ", sym);
+            Print("Symbole ignoré (non sélectionnable): ", sym);
          continue;
       }
       
-      symbols[validSymbols].symbol = sym;
-      symbols[validSymbols].digits = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
-      symbols[validSymbols].point = SymbolInfoDouble(sym, SYMBOL_POINT);
-      symbols[validSymbols].enabled = true;
+      symbols[idx].symbol = sym;
+      symbols[idx].digits = (int)SymbolInfoInteger(sym, SYMBOL_DIGITS);
+      symbols[idx].point = SymbolInfoDouble(sym, SYMBOL_POINT);
+      symbols[idx].enabled = true;
       
       bool allOK = true;
       for(int t = 0; t < 5; t++)
       {
          if(!tfEnabled[t])
          {
-            symbols[validSymbols].tf[t].handle = INVALID_HANDLE;
+            symbols[idx].tf[t].handle = INVALID_HANDLE;
             continue;
          }
          
-         symbols[validSymbols].tf[t].handle = iIchimoku(sym, tfValues[t], InpTenkan, InpKijun, InpSenkou);
-         if(symbols[validSymbols].tf[t].handle == INVALID_HANDLE)
+         symbols[idx].tf[t].handle = iIchimoku(sym, tfValues[t], InpTenkan, InpKijun, InpSenkou);
+         if(symbols[idx].tf[t].handle == INVALID_HANDLE)
          {
-            Print("Erreur Ichimoku sur ", sym, " ", tfNames[t]);
+            if(InpPrintSignals)
+               Print("Erreur Ichimoku sur ", sym, " ", tfNames[t]);
             allOK = false;
             break;
          }
          
-         symbols[validSymbols].tf[t].lastBarTime = 0;
-         symbols[validSymbols].tf[t].kijun[0] = 0;
-         symbols[validSymbols].tf[t].kijun[1] = 0;
-         symbols[validSymbols].tf[t].ssb[0] = 0;
-         symbols[validSymbols].tf[t].ssb[1] = 0;
-         symbols[validSymbols].tf[t].tenkan[0] = 0;
-         symbols[validSymbols].tf[t].tenkan[1] = 0;
+         symbols[idx].tf[t].lastBarTime = 0;
+         symbols[idx].tf[t].kijun[0] = 0;
+         symbols[idx].tf[t].kijun[1] = 0;
+         symbols[idx].tf[t].ssb[0] = 0;
+         symbols[idx].tf[t].ssb[1] = 0;
+         symbols[idx].tf[t].tenkan[0] = 0;
+         symbols[idx].tf[t].tenkan[1] = 0;
       }
       
       if(allOK)
-         validSymbols++;
+      {
+         idx++;
+      }
       else
-         symbols[validSymbols].enabled = false;
+      {
+         // Libérer les handles en cas d'erreur
+         for(int t = 0; t < 5; t++)
+         {
+            if(symbols[idx].tf[t].handle != INVALID_HANDLE)
+               IndicatorRelease(symbols[idx].tf[t].handle);
+         }
+      }
    }
    
-   totalSymbols = validSymbols;
+   totalSymbols = idx;
    
-   if(totalSymbols == 0)
-      return false;
-      
-   return true;
+   Print("Symboles chargés avec succès: ", totalSymbols);
+   
+   // Afficher les 10 premiers symboles pour vérification
+   if(InpPrintSignals && totalSymbols > 0)
+   {
+      Print("Exemples de symboles chargés:");
+      for(int i = 0; i < MathMin(10, totalSymbols); i++)
+         Print("  ", i+1, ". ", symbols[i].symbol);
+      if(totalSymbols > 10)
+         Print("  ... et ", totalSymbols - 10, " autres symboles");
+   }
+   
+   return (totalSymbols > 0);
 }
 
 //+------------------------------------------------------------------+
@@ -245,6 +267,13 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+   // Debug: Afficher un message toutes les minutes pour confirmer que l'EA tourne
+   if(InpPrintSignals && TimeCurrent() - lastDebugPrint > 60)
+   {
+      lastDebugPrint = TimeCurrent();
+      Print("EA actif - Scan de ", totalSymbols, " symboles... Positions ouvertes: ", CountOpenPositions());
+   }
+   
    if(CountOpenPositions() >= InpMaxConcurrentTrades)
       return;
    
@@ -340,6 +369,9 @@ Signal AnalyzeSignal(int symIdx, int tfIdx)
    sig.time = TimeCurrent();
    
    double bid = SymbolInfoDouble(sig.symbol, SYMBOL_BID);
+   if(bid == 0)
+      return sig;
+      
    sig.price = bid;
    
    double kijun = symbols[symIdx].tf[tfIdx].kijun[1];
@@ -413,7 +445,11 @@ bool ExecuteSignal(Signal &sig)
    
    double spread = (ask - bid) / symbols[symIdx].point;
    if(spread > InpMaxSpread)
+   {
+      if(InpPrintSignals)
+         Print("Spread trop élevé sur ", sig.symbol, ": ", spread, " > ", InpMaxSpread);
       return false;
+   }
    
    double lot = CalculateLotSize(sig);
    if(lot <= 0) return false;
@@ -430,7 +466,11 @@ bool ExecuteSignal(Signal &sig)
    tp = NormalizeDouble(tp, digits);
    
    if(!CheckStopLevels(sig.symbol, sl, tp))
+   {
+      if(InpPrintSignals)
+         Print("Stop levels invalides sur ", sig.symbol);
       return false;
+   }
    
    if(InpPrintSignals)
    {
@@ -446,10 +486,14 @@ bool ExecuteSignal(Signal &sig)
    if(Trade.Buy(lot, sig.symbol, 0, sl, tp, comment))
    {
       totalTradesCount++;
+      Print("✅ ORDRE EXÉCUTÉ sur ", sig.symbol, " - Ticket: ", Trade.ResultDeal());
       return true;
    }
-   
-   return false;
+   else
+   {
+      Print("❌ ERREUR ORDRE sur ", sig.symbol, ": ", Trade.ResultRetcodeDescription());
+      return false;
+   }
 }
 
 //+------------------------------------------------------------------+
@@ -583,6 +627,8 @@ void ManageAllTrailingStops()
             if(newSL > sl)
             {
                Trade.PositionModify(symbol, newSL, PositionGetDouble(POSITION_TP));
+               if(InpPrintSignals)
+                  Print("Trailing stop mis à jour sur ", symbol, " - Nouveau SL: ", newSL);
             }
          }
       }
