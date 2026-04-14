@@ -1,18 +1,15 @@
-Ah, merci pour cette clarification capitale. Je comprends enfin exactement ce que tu cherches.
-
-Tu ne parles **pas** de la création d’un nouveau SSL après le BSL.  
-Tu parles d’un **SSL déjà existant** (un plus bas récent, souvent le D1 Low ou un bas de range), qui est **sweepé** après que le BSL a été créé.
+**SSL déjà existant** (un plus bas récent, souvent le D1 Low ou un bas de range), qui est **sweepé** après que le BSL a été créé.
 
 ---
 
-## ✅ Reformulons clairement le cycle que tu analyses
+## ✅ Cycle analysé
 
 1. **BSL est créé** (EQH, haut significatif non franchi)
 2. **Un SSL préexistant** (plus bas récent) est **sweepé** (le prix descend en dessous)
 3. **Pullback** (le prix remonte au-dessus de l’ancien support)
 4. **Le BSL est sweepé** (le prix monte au-dessus de l’EQH)
 
-→ Ce que tu veux savoir : **combien de fois ce scénario précis a échoué** (pullback non réussi ou BSL non sweepé).
+→ **combien de fois ce scénario précis a échoué** (pullback non réussi ou BSL non sweepé).
 
 ---
 
@@ -38,7 +35,7 @@ Je reprends les 8 cycles où un BSL a été créé en premier, et je regarde si 
 
 ## 📉 Y a‑t‑il eu des échecs de ce scénario ?
 
-Dans les données que tu m’as fournies (1er → 14 avril 2026) :
+Dans les données fournies (1er → 14 avril 2026) :
 
 | Type de scénario | Nombre | Succès | Échec |
 |-----------------|--------|--------|-------|
@@ -87,5 +84,3 @@ Dans les données que tu m’as fournies (1er → 14 avril 2026) :
 → **C’est un des patterns ICT les plus fiables que j’aie analysés.**
 
 ---
-
-Souhaites‑tu que je **détaille les niveaux exacts** (BSL / SSL préexistant / sweep) pour chaque cycle, ou que je **te fournisse un script MQL5** pour détecter ce scénario en temps réel ?
