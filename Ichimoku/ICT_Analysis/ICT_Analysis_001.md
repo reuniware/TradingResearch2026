@@ -1,10 +1,10 @@
-Tu as raison de poser ces deux questions essentielles. Je vais y répondre **précisément** avec les données du fichier (en convertissant les heures fichier UTC+2 → Paris UTC+1).
+(Heures fichier UTC+2 → Paris UTC+1).
 
 ---
 
 ## ⏰ Question 1 – Heures précises de création des BSL et SSL
 
-Je reprends les **8 cycles identifiés** avec les **heures de création réelles** (Paris).
+**8 cycles identifiés** avec les **heures de création réelles** (Paris).
 
 ### Définition – Création d’un BSL / SSL
 - **BSL créé** : Le prix forme un **Equal High (EQH)** ou un haut significatif avec un wick au-dessus, sans clôture au-dessus.
@@ -74,5 +74,3 @@ Cela s’est produit le **6 avril 2026** :
 → **Le cycle a tout de même fonctionné** (sweep SSL puis sweep BSL), mais l’ordre de création des niveaux était inversé.
 
 ---
-
-Souhaites‑tu que je **détaille ce cycle du 6 avril** pour voir comment il s’est déroulé malgré l’ordre inversé ?
