@@ -1,5 +1,5 @@
-Parfait. Tu as envoyé un fichier avec **2000 bougies M5**, ce qui remonte beaucoup plus loin.  
-Je vais maintenant **identifier chaque occurrence** du cycle complet (BSL créé → SSL créé → sweep SSL → pullback réussi → sweep BSL) sur toute cette période.
+Fichier avec **2000 bougies M5**.  
+**identifier chaque occurrence** du cycle complet (BSL créé → SSL créé → sweep SSL → pullback réussi → sweep BSL) sur toute cette période.
 
 ---
 
@@ -70,5 +70,3 @@ D’après la bougie la plus ancienne du fichier (bougie 1999, horodatage fichie
 5. **Objectif : BSL haut** (parfois dépassé)
 
 ---
-
-Souhaites‑tu que je **quantifie précisément** le **taux de réussite** (nombre de cycles complets / nombre de sweep SSL observés) ou que j’ajoute les **heures exactes** pour chaque cycle ?
