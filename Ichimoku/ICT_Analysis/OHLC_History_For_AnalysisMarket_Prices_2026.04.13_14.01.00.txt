@@ -169,5 +169,5 @@ UNIUSD               | Bid: 3.0129       | Ask: 3.0141       | Spread: 12.0 pips
 FETUSD               | Bid: 0.2263       | Ask: 0.2264       | Spread: 1.0 pips
 XTZUSD               | Bid: 0.3400       | Ask: 0.3430       | Spread: 30.0 pips
 --------------------------------------------------
-Total symboles exportés: 166
+Total symboles exportÃ©s: 166
 Fin de l'export
